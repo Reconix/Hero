@@ -11,6 +11,7 @@
 */
 
 class Dashboard extends Admincp_Controller {
+
 	function __construct() {
 		parent::__construct();
 
@@ -91,8 +92,9 @@ class Dashboard extends Admincp_Controller {
 		// system stats
 		$system = array();
 
-		$system['PHP'] = phpversion();
-		$system['MySQL'] = mysql_get_server_info();
+		$system['PHP'] = explode('~',phpversion())[0];
+		$this->load->database();
+		$system['MySQL'] = $this->db->conn_id->server_info;
 		$system[$this->config->item('app_name')] = $this->config->item('app_version');
 		$system['CodeIgniter'] = CI_VERSION;
 		$system['Theme'] = setting('theme');
@@ -143,7 +145,6 @@ class Dashboard extends Admincp_Controller {
 							   ->select('orders.timestamp')
 							   ->select('orders.subscription_id')
 							   ->from('orders')
-							   ->where('orders.status','1')
 							   ->join('users','users.customer_id = orders.customer_id')
 							   ->order_by('orders.timestamp','DESC')
 							   ->limit(10)
@@ -182,27 +183,13 @@ class Dashboard extends Admincp_Controller {
 							   ->select('subscriptions.timestamp')
 							   ->from('subscriptions')
 							   ->join('users','users.customer_id = subscriptions.customer_id')
-							   ->join('plans','plans.plan_id','subscriptions.plan_id')
+							   ->join('plans','plans.plan_id = subscriptions.plan_id')
 							   ->order_by('subscriptions.timestamp','DESC')
 							   ->limit(10)
 							   ->get();
 
 			foreach ($result->result_array() as $order) {
 				$activity[strtotime($order['timestamp'])] = '<a href="' . site_url('admincp/users/profile/' . $order['user_id']) . '">' . $order['user_first_name'] . ' ' . $order['user_last_name'] . ' subscribed to ' . $order['name'] . '.</a>';
-			}
-		}
-
-		if (module_installed('twitter')) {
-			// ... published to twitter
-			$result = $this->db->select('tweet')
-							   ->select('sent_time')
-							   ->from('tweets_sent')
-							   ->order_by('sent_time','DESC')
-							   ->limit(10)
-							   ->get();
-	
-			foreach ($result->result_array() as $tweets) {
-				$activity[strtotime($tweets['sent_time'])] = $tweets['tweet'] . ' was tweeted on <a href="' . site_url('admincp/twitter/tweet_logs') . '">Twitter</a>';
 			}
 		}
 

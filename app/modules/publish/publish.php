@@ -12,7 +12,7 @@
 */
 
 class Publish extends Module {
-	var $version = '1.20';
+	var $version = '1.16';
 	var $name = 'publish';
 
 	function __construct () {
@@ -80,7 +80,7 @@ class Publish extends Module {
  								 `content_type_system_name` varchar(50) NOT NULL,
  								 `content_type_template` varchar(255) NOT NULL,
  								 PRIMARY KEY  (`content_type_id`)
-								) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;');
+								) ENGINE=Innodb DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;');
 		}
 		
 		if ($db_version < 1.03) {
@@ -89,7 +89,7 @@ class Publish extends Module {
  								 `topic_id` int(11) NOT NULL,
  								 `content_id` int(11) NOT NULL,
    								 PRIMARY KEY  (`topic_map_id`)
-								 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;');
+								 ) ENGINE=Innodb DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;');
 		
 			$this->CI->db->query('CREATE TABLE IF NOT EXISTS `topics` (
  								 `topic_id` int(11) NOT NULL auto_increment,
@@ -98,7 +98,7 @@ class Publish extends Module {
   								 `topic_description` text NOT NULL,
   								 `topic_deleted` tinyint(1) NOT NULL,
    								 PRIMARY KEY  (`topic_id`)
-								 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1000 ;');
+								 ) ENGINE=Innodb DEFAULT CHARSET=utf8 AUTO_INCREMENT=1000 ;');
 		}
 		
 		if ($db_version < 1.09) {
@@ -117,7 +117,7 @@ class Publish extends Module {
  								 `content_privileges` varchar(255),
  								 `content_hits` int(11),
    								 PRIMARY KEY  (`content_id`)
-								 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;');
+								 ) ENGINE=Innodb DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;');
 		}
 		
 		if ($db_version < 1.10) {
@@ -156,35 +156,6 @@ class Publish extends Module {
 		if ($db_version < 1.16) {
 			// fixing an earlier bug
 			$this->CI->db->update('hooks', array('hook_name' => 'update_content'), array('hook_description' => 'A content item is updated.'));
-		}
-		
-		if ($db_version < 1.17) {
-			$this->CI->load->library('app_hooks');
-			$this->CI->app_hooks->register('view_content','A content item is viewed in the standard publish controller.',array());
-		}
-
-		if ($db_version < 1.18) {
-			$this->CI->db->query('ALTER TABLE `content` ADD COLUMN `content_unpublish_date` DATETIME NOT NULL AFTER `content_date`');
-			$this->CI->db->query('ALTER TABLE `content` ADD COLUMN `content_status` ENUM("Enabled","Disabled") NOT NULL DEFAULT "Enabled"');
-		}
-		
-		if($db_version < 1.19) {
-			$unpublish_date = date(
-						'Y-m-d H:i:s'
-						,strtotime(
-							'+20 years'
-							,time()
-						)
-					);
-			$this->CI->db->set('content_unpublish_date', $unpublish_date);
-			$this->CI->db->where('content_unpublish_date','0000-00-00 00:00:00');
-			$this->CI->db->or_where('content_unpublish_date','1970-01-01 00:00:00');
-			$this->CI->db->update('content');
-			//print_r($this->CI->db->last_query());
-		}
-
-		if($db_version < 1.20) {
-			$this->CI->app_hooks->bind('cron','Content_model','hook_cron',APPPATH . 'modules/publish/models/content_model.php');
 		}
 	
 		return $this->version;

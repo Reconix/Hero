@@ -18,11 +18,7 @@ class Cron extends Front_Controller {
 
 	function update ($key) {
 		// give lots of time for processing
-		set_time_limit(0);
-		
-		// if wget times out, or the user stops requesting, don't end the cron processing
-		// http://stackoverflow.com/questions/2291524/does-wget-timeout
-		ignore_user_abort(TRUE);
+		set_time_limit(500);
 		
 		if ($this->config->item('cron_key') != $key) {
 			die('Invalid key.');

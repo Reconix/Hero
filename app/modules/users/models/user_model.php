@@ -153,7 +153,7 @@ class User_model extends CI_Model
 			$user_db = $query->row_array();
 			$user = $this->get_user($user_db['user_id']);
 
-			$hashPassSalt = ($user['salt'] == '') ? $this->generatePassSalt($password,'') : $this->generatePassSalt($password,$user['salt']));
+			$hashPassSalt = (($user['salt'] == '') ? $this->generatePassSalt($password,'') : $this->generatePassSalt($password,$user['salt']));
 
 			if ($hashPassSalt->pass == $user_db['user_password']) {
 				$authenticated = TRUE;
@@ -375,9 +375,15 @@ class User_model extends CI_Model
 	    		return FALSE;
 	    	}
 	    }
-	    
-	    // let's see if we even need to do anything...
-	    if (is_array($group) and in_array('0', $group)) {
+
+    	if ($user_id) {
+    		$user_array = $this->get_user($user_id);
+    	}
+    	else {
+    		$user_array = $this->active_user;
+    	}
+
+    	if (is_array($group) and in_array('0', $group)) {
     		// this is a "privileges" array and it's public so anyone can see it
     		return TRUE;
     	}
@@ -385,17 +391,10 @@ class User_model extends CI_Model
     		return TRUE;
     	}
 
-		// load user info
-    	if ($user_id) {
-    		$user_array = $this->get_user($user_id);
-    	}
-    	else {
-    		if ($this->logged_in()) {
-	    		$user_array = $this->active_user;
-	    	}
-	    	else {
-		    	return FALSE;
-	    	}
+    	if (!$this->logged_in()) {
+    		// we aren't even logged in
+
+    		return FALSE;
     	}
 
     	if (is_array($group)) {
@@ -434,12 +433,13 @@ class User_model extends CI_Model
     		$user_array = $this->get_user($user_id);
     	}
     	else {
-    		if ($this->logged_in()) {
-	    		$user_array = $this->active_user;
-	    	}
-	    	else {
-	    		return FALSE;
-	    	}
+    		$user_array = $this->active_user;
+    	}
+
+    	if (!$this->logged_in()) {
+    		// we aren't even logged in
+
+    		return TRUE;
     	}
 
     	if (is_array($group)) {
@@ -642,14 +642,6 @@ class User_model extends CI_Model
 		$CI->form_validation->set_rules('last_name','Last Name','trim|required|xss_clean');
 		$unique_email = ($editing == FALSE) ? '|unique_email' : '';
 		$CI->form_validation->set_rules('email','Email','trim' . $unique_email . '|valid_email|required');
-		
-		// unique email doesn't seem to be working, so let's do a manual check
-		$email_error = FALSE;
-		if ($editing == FALSE) {
-			if ($this->unique_email($this->input->post('email')) === FALSE) {
-				$email_error = TRUE;
-			}
-		}
 
 		$username_rules = array('trim','strip_whitespace','min_length[3]', 'xss_clean');
 		if ($this->config->item('username_allow_special_characters') == FALSE) {
@@ -667,19 +659,11 @@ class User_model extends CI_Model
 
 		if ($CI->form_validation->run() === FALSE) {
 			if ($error_array == TRUE) {
-				$errors = explode('||',str_replace(array('<p>','</p>'),array('','||'),validation_errors()));
-				if ($email_error == TRUE) {
-					$errors[] = 'This email address is unavailable.';
-				}
+				return explode('||',str_replace(array('<p>','</p>'),array('','||'),validation_errors()));
 			}
 			else {
-				$errors = validation_errors();
-				if ($email_error == TRUE) {
-					$errors .= '<p>This email address is unavailable.';
-				}
+				return validation_errors();
 			}
-			
-			return $errors;
 		}
 
 		// validate custom fields
@@ -939,7 +923,6 @@ class User_model extends CI_Model
 			$validate_key = '';
 		}
 
-		// generate hashed password
 		$hashPassSalt = $this->generatePassSalt($password);
 
 		$insert_fields = array(
@@ -953,7 +936,7 @@ class User_model extends CI_Model
 								'user_salt' => $hashPassSalt->salt,
 								'user_referrer' => ($affiliate != FALSE) ? $affiliate : '0',
 								'user_signup_date' => date('Y-m-d H:i:s'),
-								'user_last_login' => '0000-00-00 00:00:00',
+								'user_last_login' => date('Y-m-d H:i:s'),
 								'user_suspended' => '0',
 								'user_deleted' => '0',
 								'user_remember_key' => '',
@@ -1025,6 +1008,28 @@ class User_model extends CI_Model
 		}
 
 		return $user_id;
+	}
+
+	/**
+	 * Generate a hashed password and unique salt
+	 *
+	 * @param string $password the password enetered by the user
+	 * @return array an array containing the password and salt for a user
+	 */
+	function generatePassSalt($password,$salt=null){
+		// generate hashed password
+		if($salt == '' ) {
+			$hashed_password = md5($password);
+		} else {
+			if($salt == null){
+				$salt = uniqid();
+			}
+			$hashed_password = md5($password . ':' . $salt);
+		}
+		$hashed_obj = new STDClass;
+		$hashed_obj->pass = $hashed_password;
+		$hashed_obj->salt = $salt;
+		return $hashed_obj;
 	}
 
 	/**
@@ -1226,8 +1231,8 @@ class User_model extends CI_Model
 		$this->load->helper('string');
 
 		$password = random_string('alnum',9);
-		$hashPassSalt = $this->generatePassSalt($password,'');
-		$this->db->update('users',array('user_password' => $hashPassSalt->pass, 'user_salt' => ''),array('user_id' => $user['id']));
+		$hashPass = $this->generatePassSalt($password,'');
+		$this->db->update('users',array('user_password' => $hashPass->pass, 'user_salt' => ''),array('user_id' => $user['id']));
 
 		// hook call
 		$CI =& get_instance();
@@ -1238,25 +1243,6 @@ class User_model extends CI_Model
 		$CI->app_hooks->reset();
 
 		return TRUE;
-	}
-
-	/**
-	 * Generate a hashed password and unique salt
-	 *
-	 * @param string $password the password enetered by the user
-	 * @return array an array containing the password and salt for a user
-	 */
-	function generatePassSalt($password,$salt=null){
-		// generate hashed password
-		if($salt == '' ) {
-			$hashed_password = md5($password);
-		} else {
-			if($salt == null){
-				$salt = uniqid();
-			}
-			$hashed_password = md5($password . ':' . $salt);
-		}
-		return array('pass'=>$hashed_password,'salt'=>$salt);
 	}
 
 	/**

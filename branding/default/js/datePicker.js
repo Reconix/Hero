@@ -1159,7 +1159,7 @@
 		selectWeek			: false,
 		verticalPosition	: $.dpConst.POS_TOP,
 		horizontalPosition	: $.dpConst.POS_LEFT,
-		verticalOffset		: '20px',
+		verticalOffset		: 0,
 		horizontalOffset	: 0,
 		hoverClass			: 'dp-hover'
 	};
